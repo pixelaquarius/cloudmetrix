@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - CloudMetrix{% endblock %}
+{% block breadcrumb %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex justify-between items-center">
+    <div>
+        <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Overview</h1>
+        <p class="text-slate-500 mt-1">System status and quick links.</p>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="card p-5 flex flex-col justify-between h-32">
+        <h3 class="text-slate-500 text-xs font-semibold uppercase tracking-wider">Engine Status</h3>
+        <div class="flex items-center">
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 mr-2"></span>
+            <span class="text-2xl font-bold text-slate-900 dark:text-white">Active</span>
+        </div>
+    </div>
+    
+    <div onclick="window.location.href='/downloader'" class="card p-5 flex flex-col justify-between h-32 cursor-pointer hover:border-slate-400 transition-colors">
+        <h3 class="text-slate-500 text-xs font-semibold uppercase tracking-wider">Sync Module</h3>
+        <div class="flex items-center justify-between">
+            <span class="text-lg font-medium text-slate-800 dark:text-slate-200">Go to Downloader</span>
+            <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+        </div>
+    </div>
+
+    <div onclick="window.location.href='/editor'" class="card p-5 flex flex-col justify-between h-32 cursor-pointer hover:border-slate-400 transition-colors">
+        <h3 class="text-slate-500 text-xs font-semibold uppercase tracking-wider">Schedule Map</h3>
+        <div class="flex items-center justify-between">
+            <span class="text-lg font-medium text-slate-800 dark:text-slate-200">Manage Queue</span>
+            <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+        </div>
+    </div>
+
+    <div onclick="window.location.href='/calendar'" class="card p-5 flex flex-col justify-between h-32 cursor-pointer hover:border-slate-400 transition-colors">
+        <h3 class="text-slate-500 text-xs font-semibold uppercase tracking-wider">Analytics</h3>
+        <div class="flex items-center justify-between">
+            <span class="text-lg font-medium text-slate-800 dark:text-slate-200">View History</span>
+            <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+        </div>
+    </div>
+</div>
+
+<div class="card p-5 bg-blue-50/50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900/30">
+    <div class="flex">
+        <svg class="w-5 h-5 text-blue-600 dark:text-blue-400 mr-3 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        <div>
+            <h4 class="font-semibold text-blue-800 dark:text-blue-300 mb-1">System Update</h4>
+            <p class="text-blue-700 dark:text-blue-400/80 leading-relaxed max-w-3xl">
+                The UI has been migrated to a flat CMS administration layout. Video playback features and flat-button stylings are now enabled. Emojis and glassmorphism have been deprecated for a cleaner professional workflow.
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

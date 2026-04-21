@@ -1,0 +1,649 @@
+{% extends "base.html" %}
+
+{% block title %}Automation Hub - CloudMetrix{% endblock %}
+{% block breadcrumb %}Automation Hub{% endblock %}
+
+{% block content %}
+<div class="space-y-6 flex flex-col h-[calc(100vh-160px)]">
+    <!-- Hub Header -->
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shrink-0">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Automation Hub</h1>
+            <p class="text-slate-500 text-sm mt-0.5">Edit, schedule, and manually trigger engine tasks.</p>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+            <button onclick="loadData()" class="btn btn-outline py-2 px-3 text-xs" title="Force Refresh">
+                <svg class="w-3.5 h-3.5 mr-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                Sync UI
+            </button>
+            <div class="h-8 w-[1px] bg-slate-200 dark:bg-slate-800 mx-1"></div>
+            <button onclick="deleteSelected()" class="btn btn-outline py-2 px-3 text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 border-slate-200 dark:border-slate-800">
+                Delete
+            </button>
+            <button onclick="autoSchedule()" class="btn btn-outline py-2 px-3 text-xs text-indigo-600 dark:text-indigo-400 border-indigo-100 dark:border-indigo-900/40">
+                Auto-schedule
+            </button>
+            <button onclick="postSelected()" class="btn btn-primary py-2 px-5 text-xs bg-emerald-600 hover:bg-emerald-700 border-none shadow-lg shadow-emerald-200 dark:shadow-none">
+                Post Selected
+            </button>
+            <button onclick="saveCsv()" id="saveBtn" class="btn btn-outline py-2 px-5 text-xs">
+                Save changes
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Workspace Layout -->
+    <div class="flex-1 flex gap-6 overflow-hidden">
+        
+        <!-- Left Column: Content Grid / Table -->
+        <div class="flex-1 flex flex-col min-w-0">
+            <div class="card flex-1 flex flex-col overflow-hidden">
+                <!-- Filters Bar -->
+                <div class="p-4 border-b border-slate-100 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-900/50 flex flex-wrap gap-4 items-center justify-between">
+                    <div class="flex-1 min-w-[200px] relative">
+                        <svg class="w-4 h-4 absolute left-3 top-2.5 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        <input type="text" id="searchInput" onkeyup="applyFilters()" placeholder="Search assets..." class="input-field pl-9 py-2">
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <select id="statusFilter" onchange="applyFilters()" class="input-field py-2 text-xs w-auto">
+                            <option value="">All statuses</option>
+                            <option value="Pending">Pending</option>
+                            <option value="Scheduled">Scheduled</option>
+                            <option value="Done">Done</option>
+                            <option value="Failed">Failed</option>
+                        </select>
+                        <select id="creatorFilter" onchange="applyFilters()" class="input-field py-2 text-xs w-auto">
+                            <option value="">All Creators</option>
+                        </select>
+                        <button onclick="toggleViewMode()" id="viewModeBtn" class="btn btn-outline py-2 px-3">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Scrollable Data Area -->
+                <div class="flex-1 overflow-auto bg-white dark:bg-slate-900/20" id="data-container">
+                    <div class="p-12 text-center text-slate-400 flex flex-col items-center">
+                        <svg class="w-8 h-8 animate-spin mb-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                        Loading engine data...
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Live Telemetry / Bot Logs -->
+        <div class="w-80 shrink-0 flex flex-col gap-6 lg:block hidden">
+            <div class="card h-full flex flex-col overflow-hidden border-indigo-100 dark:border-indigo-900/20">
+                <div class="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 flex items-center justify-between">
+                    <h3 class="font-bold text-xs uppercase tracking-widest text-slate-500">Live Telemetry</h3>
+                    <div class="flex items-center gap-1.5">
+                        <span id="bot-dot" class="w-2 h-2 rounded-full bg-slate-300"></span>
+                        <span id="bot-status-text" class="text-[10px] font-bold text-slate-400 uppercase">Idle</span>
+                    </div>
+                </div>
+                <div id="log-container" class="flex-1 p-4 font-mono text-[10px] leading-relaxed overflow-y-auto bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-emerald-400/90 whitespace-pre-wrap border-t border-slate-100 dark:border-none">
+<span class="text-slate-400">Awaiting bot trigger...</span>
+                </div>
+                <div class="p-4 border-t border-slate-800 bg-slate-950">
+                    <div id="active-task-ui" class="hidden">
+                        <div class="flex items-center gap-2 mb-2">
+                             <svg class="w-3 h-3 animate-spin text-indigo-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                             <span class="text-[10px] font-bold text-slate-300 uppercase tracking-wider">Processing:</span>
+                        </div>
+                        <div id="task-filename" class="text-[11px] text-white font-medium truncate mb-3 italic opacity-60">Waiting for engine task...</div>
+                        <div class="h-1 w-full bg-slate-800 rounded-full overflow-hidden">
+                            <div id="task-progress-bar" class="h-full bg-indigo-500 transition-all duration-500" style="width: 45%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Video player modal -->
+<dialog id="videoModal" class="bg-transparent m-auto p-0 backdrop:bg-slate-900/80 backdrop:backdrop-blur-sm">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl overflow-hidden w-80 max-w-[90vw] flex flex-col">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800">
+            <span class="font-bold text-slate-800 dark:text-slate-200 truncate pr-4 text-xs" id="modalTitle">PREVIEW</span>
+            <button onclick="closeModal()" class="text-slate-400 hover:text-red-500 transition-colors shrink-0">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+        <div class="bg-black relative aspect-[9/16] w-full flex items-center justify-center">
+            <div id="modalLoader" class="absolute inset-0 flex flex-col items-center justify-center bg-black z-10">
+                <svg class="w-10 h-10 text-indigo-500 animate-spin mb-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                <span class="text-white text-[11px] font-bold uppercase tracking-widest text-opacity-50">Fetching asset...</span>
+            </div>
+            <video id="modalVideo" class="h-full w-full object-contain hidden" controls autoplay></video>
+        </div>
+    </div>
+</dialog>
+
+<!-- Edit Side Panel (drawer style) -->
+<div id="editDrawer" class="fixed inset-y-0 right-0 w-full max-w-sm bg-white dark:bg-slate-900 z-[100] shadow-2xl transform translate-x-full transition-transform duration-300 border-l border-slate-200 dark:border-slate-800 flex flex-col">
+    <div class="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
+        <h3 class="font-bold text-slate-900 dark:text-white uppercase tracking-wider text-sm">Asset configuration</h3>
+        <button onclick="closeEditDrawer()" class="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+    </div>
+    <div class="flex-1 overflow-y-auto p-6 space-y-6">
+        <input type="hidden" id="editIndex">
+        <div class="space-y-1.5">
+            <label class="block text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Internal title</label>
+            <input type="text" id="editTitle" class="input-field py-2.5">
+        </div>
+        <div class="space-y-1.5">
+            <label class="block text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Facebook post caption</label>
+            <textarea id="editCaption" rows="5" class="input-field py-2.5 resize-none"></textarea>
+            <p class="text-[10px] text-slate-400 italic">Captions under 50 words see 24% higher engagement.</p>
+        </div>
+        <div class="space-y-1.5">
+            <label class="block text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Hashtags</label>
+            <input type="text" id="editHashtags" placeholder="#viral, #trending" class="input-field py-2.5">
+        </div>
+        <div class="space-y-1.5">
+            <label class="block text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Target profile</label>
+            <select id="editProfile" class="input-field py-2.5">
+                <option value="Automation_1">Automation_1 (Default)</option>
+            </select>
+        </div>
+        <div class="flex items-center gap-3 p-4 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-dashed border-slate-200 dark:border-slate-700/50">
+            <div class="flex-1">
+                <div class="text-[11px] font-bold text-slate-900 dark:text-white uppercase tracking-wider">Lách bản quyền (Beta)</div>
+                <div class="text-[9px] text-slate-400 mt-0.5">Flip, Crop, Zoom & Speed up x1.02</div>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="editBypass" class="sr-only peer">
+                <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-indigo-600"></div>
+            </label>
+        </div>
+    </div>
+    <div class="p-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 shrink-0 space-y-3">
+        <button onclick="saveEdit()" class="btn btn-outline w-full py-2.5">Apply Configuration</button>
+        <button onclick="postThisNow()" class="btn btn-primary w-full py-3 shadow-lg shadow-indigo-100 dark:shadow-none bg-indigo-600 hover:bg-indigo-700">🚀 Post This Now</button>
+    </div>
+</div>
+
+<!-- Backdrop -->
+<div id="drawerBackdrop" class="fixed inset-0 bg-slate-950/20 backdrop-blur-[2px] z-[99] hidden opacity-0 transition-opacity duration-300" onclick="closeEditDrawer()"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let originalData = [];
+    let rowsData = [];
+    let accountsList = [];
+    let selectedFileNames = new Set();
+    let viewMode = 'list';
+    let isPosting = false;
+
+    async function loadAccounts() {
+        try {
+            const res = await fetch('/api/accounts');
+            if (res.ok) {
+                const data = await res.json();
+                accountsList = data.accounts || [];
+                const editProfile = document.getElementById('editProfile');
+                if (editProfile) {
+                    editProfile.innerHTML = accountsList.map(a => `<option value="${a.profile}">${a.name} (${a.profile})</option>`).join('');
+                }
+            }
+        } catch (e) {}
+    }
+
+    async function loadData() {
+        await loadAccounts();
+        try {
+            const res = await fetch('/api/load-csv');
+            if (res.ok) {
+                const data = await res.json();
+                originalData = data.rows || [];
+                
+                // Update Creator list
+                updateCreatorFilter();
+                
+                applyFilters();
+            }
+        } catch (e) { console.error('Load error:', e); }
+    }
+
+    function updateCreatorFilter() {
+        const filter = document.getElementById('creatorFilter');
+        const currentVal = filter.value;
+        const creators = [...new Set(originalData.map(r => extractHandle(r.source_url)).filter(h => h))];
+        filter.innerHTML = '<option value="">All Creators</option>' + 
+            creators.map(c => `<option value="${c}">${c}</option>`).join('');
+        filter.value = currentVal;
+    }
+
+    function extractHandle(url) {
+        if (!url) return '';
+        const match = url.match(/@([^/?#]+)/);
+        return match ? '@' + match[1] : '';
+    }
+
+    function toggleViewMode() {
+        viewMode = viewMode === 'list' ? 'grid' : 'list';
+        renderTable();
+    }
+
+    function applyFilters() {
+        const query = (document.getElementById('searchInput').value || '').toLowerCase().trim();
+        const statusFilter = document.getElementById('statusFilter').value;
+        const creatorFilter = document.getElementById('creatorFilter').value;
+
+        let filtered = [...originalData];
+        if (query) filtered = filtered.filter(r => (r.filename || '').toLowerCase().includes(query) || (r.title || '').toLowerCase().includes(query));
+        if (statusFilter) filtered = filtered.filter(r => r.status === statusFilter);
+        if (creatorFilter) filtered = filtered.filter(r => extractHandle(r.source_url) === creatorFilter);
+
+        rowsData = filtered;
+        renderTable();
+    }
+
+    function statusBadge(status) {
+        const map = {
+            'Done':      'text-emerald-500 bg-emerald-50 dark:bg-emerald-500/10 border-emerald-100 dark:border-emerald-500/20',
+            'Scheduled': 'text-indigo-500 bg-indigo-50 dark:bg-indigo-500/10 border-indigo-100 dark:border-indigo-500/20',
+            'Pending':   'text-amber-500 bg-amber-50 dark:bg-amber-500/10 border-amber-100 dark:border-amber-500/20',
+            'Failed':    'text-red-500 bg-red-50 dark:bg-red-500/10 border-red-100 dark:border-red-500/20',
+        };
+        return map[status] || 'text-slate-400 bg-slate-50 dark:bg-slate-400/10 border-slate-100';
+    }
+
+    function renderRow(row, index) {
+        const badge = statusBadge(row.status);
+        const thumb = row.thumbnail_path
+            ? `<img src="/data/thumbnails/${row.thumbnail_path}" class="w-10 h-14 object-cover rounded-lg cursor-pointer hover:scale-105 transition-transform shadow-sm" onclick="playVideo('${esc(row.filename)}','${esc(row.title)}','${esc(row.source_url)}')" title="Preview video">`
+            : `<div class="w-10 h-14 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center text-slate-300"><svg class="w-5 h-5 font-bold" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/></svg></div>`;
+
+        return `
+            <tr class="group border-b border-slate-50 dark:border-slate-800/80 hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors">
+                <td class="pl-5 pr-2 py-4">
+                    <input type="checkbox" class="row-checkbox w-4 h-4 rounded-md border-slate-300 text-indigo-600 focus:ring-indigo-500 transition-all cursor-pointer" 
+                           data-filename="${esc(row.filename)}" 
+                           ${selectedFileNames.has(row.filename) ? 'checked' : ''} 
+                           onchange="toggleSelectRow('${esc(row.filename)}', this.checked)">
+                </td>
+                <td class="px-2 py-4">${thumb}</td>
+                <td class="px-4 py-4 max-w-[200px]">
+                    <div class="font-bold text-slate-800 dark:text-slate-200 text-sm truncate" title="${esc(row.title)}">${row.title || '<span class="text-slate-300 font-normal italic">Untitled asset</span>'}</div>
+                    <div class="text-[10px] text-slate-400 truncate mt-1 font-mono tracking-tight">${row.filename || ''}</div>
+                </td>
+                <td class="px-4 py-4 lg:table-cell hidden max-w-[240px]">
+                    <div class="text-xs text-slate-500 line-clamp-2 leading-relaxed italic" title="${esc(row.caption)}">"${row.caption || 'No caption configured'}"</div>
+                </td>
+                <td class="px-4 py-4">
+                    <div class="flex flex-col gap-1.5">
+                        <div class="flex items-center gap-2">
+                             <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold border uppercase tracking-wider w-fit ${badge}">${row.status || 'Pending'}</span>
+                             ${row.scheduled_time ? `<span class="text-[9px] font-bold text-indigo-500/80 italic">@ ${new Date(row.scheduled_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>` : ''}
+                        </div>
+                        <div id="row-progress-container-${esc(row.filename)}" class="hidden mt-2">
+                             <div class="flex justify-between text-[8px] font-bold text-indigo-500 uppercase mb-1">
+                                <span>Deploying...</span>
+                                <span id="row-progress-text-${esc(row.filename)}">0%</span>
+                             </div>
+                             <div class="h-1 w-24 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                <div id="row-progress-bar-${esc(row.filename)}" class="h-full bg-gradient-to-r from-indigo-500 to-blue-600 transition-all duration-500" style="width: 0%"></div>
+                             </div>
+                        </div>
+                        <div class="text-[10px] text-slate-400 font-medium px-1 flex items-center gap-1 border-t border-slate-50 dark:border-slate-800/50 pt-1.5 mt-1.5">
+                            <svg class="w-2.5 h-2.5 opacity-50" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                            ${row.profile || 'Automation_1'}
+                        </div>
+                    </div>
+                </td>
+                <td class="px-4 pr-5 py-4 text-right">
+                    <div class="flex items-center justify-end gap-1.5">
+                        <button onclick="postNow('${esc(row.filename)}')" class="btn btn-outline p-2 hover:text-indigo-600 hover:border-indigo-300 dark:hover:bg-indigo-900/10 shadow-sm" title="Post Now">
+                             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
+                        </button>
+                        <button onclick="openEditDrawer(${index})" class="btn btn-outline p-2 shadow-sm" title="Configure">
+                             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+                        </button>
+                    </div>
+                </td>
+            </tr>`;
+    }
+
+    function renderTable() {
+        const container = document.getElementById('data-container');
+        if (rowsData.length === 0) {
+            container.innerHTML = `
+                <div class="flex flex-col items-center justify-center p-20 text-center space-y-4">
+                    <div class="w-16 h-16 bg-slate-50 dark:bg-slate-900 rounded-full flex items-center justify-center mb-2">
+                        <svg class="w-8 h-8 text-slate-200 dark:text-slate-800" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path></svg>
+                    </div>
+                    <div>
+                        <p class="text-slate-500 font-bold text-sm">Engine queue is empty</p>
+                        <p class="text-slate-400 text-xs mt-1">Visit the <a href="/downloader" class="text-indigo-500 font-bold hover:underline">Sync Center</a> to pull fresh content.</p>
+                    </div>
+                </div>`;
+            return;
+        }
+
+        container.innerHTML = `
+            <table class="w-full text-left border-collapse">
+                <thead class="bg-slate-50/50 dark:bg-slate-900/50 sticky top-0 z-10 border-b border-slate-100 dark:border-slate-800">
+                    <tr>
+                        <th class="pl-5 pr-2 py-3 w-10">
+                            <input type="checkbox" id="selectAll" class="w-4 h-4 rounded-md border-slate-300 text-indigo-600 cursor-pointer">
+                        </th>
+                        <th class="px-2 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Visual</th>
+                        <th class="px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Asset Details</th>
+                        <th class="px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest lg:table-cell hidden">Caption Mapping</th>
+                        <th class="px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Engine Status</th>
+                        <th class="px-4 pr-5 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Op</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-50 dark:divide-slate-800/80">
+                    ${rowsData.map((row, i) => renderRow(row, i)).join('')}
+                </tbody>
+            </table>`;
+        
+        document.getElementById('selectAll').addEventListener('change', e => {
+            const isChecked = e.target.checked;
+            document.querySelectorAll('.row-checkbox').forEach(cb => {
+                cb.checked = isChecked;
+                toggleSelectRow(cb.dataset.filename, isChecked);
+            });
+        });
+    }
+
+    function toggleSelectRow(filename, isChecked) {
+        if (isChecked) selectedFileNames.add(filename);
+        else selectedFileNames.delete(filename);
+    }
+
+    function openEditDrawer(index) {
+        const row = rowsData[index];
+        document.getElementById('editIndex').value = index;
+        document.getElementById('editTitle').value = row.title || '';
+        document.getElementById('editCaption').value = row.caption || '';
+        document.getElementById('editHashtags').value = row.hashtags || '';
+        document.getElementById('editProfile').value = row.profile || 'Automation_1';
+        document.getElementById('editBypass').checked = row.bypass_copyright === '1';
+        
+        const drawer = document.getElementById('editDrawer');
+        const backdrop = document.getElementById('drawerBackdrop');
+        drawer.classList.remove('translate-x-full');
+        backdrop.classList.remove('hidden');
+        setTimeout(() => backdrop.classList.add('opacity-100'), 10);
+    }
+
+    function closeEditDrawer() {
+        const drawer = document.getElementById('editDrawer');
+        const backdrop = document.getElementById('drawerBackdrop');
+        drawer.classList.add('translate-x-full');
+        backdrop.classList.remove('opacity-100');
+        setTimeout(() => backdrop.classList.add('hidden'), 300);
+    }
+
+    function saveEdit() {
+        const index = parseInt(document.getElementById('editIndex').value);
+        const row = rowsData[index];
+        row.title = document.getElementById('editTitle').value;
+        row.caption = document.getElementById('editCaption').value;
+        row.hashtags = document.getElementById('editHashtags').value;
+        row.profile = document.getElementById('editProfile').value;
+        row.bypass_copyright = document.getElementById('editBypass').checked ? '1' : '0';
+        // Also update originalData
+        const origIdx = originalData.findIndex(r => r.filename === row.filename);
+        if (origIdx !== -1) {
+            originalData[origIdx].title = row.title;
+            originalData[origIdx].caption = row.caption;
+            originalData[origIdx].hashtags = row.hashtags;
+            originalData[origIdx].profile = row.profile;
+            originalData[origIdx].bypass_copyright = row.bypass_copyright;
+        }
+        closeEditDrawer();
+        renderTable();
+        saveCsv();
+    }
+
+    function postThisNow() {
+        const index = parseInt(document.getElementById('editIndex').value);
+        const row = rowsData[index];
+        saveEdit(); // Save first
+        postNow(row.filename);
+    }
+
+    async function saveCsv() {
+        const btn = document.getElementById('saveBtn');
+        const orig = btn.textContent;
+        btn.textContent = 'Saving...';
+        btn.disabled = true;
+        try {
+            await fetch('/api/save-csv', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ rows: originalData })
+            });
+            showToast('Changes committed to database.', 'success');
+        } catch (e) { showToast('Commit error.', 'error'); }
+        finally { btn.textContent = orig; btn.disabled = false; }
+    }
+
+    async function postNow(filename) {
+        if (isPosting) { showToast('Engine is busy.', 'warn'); return; }
+        const row = originalData.find(r => r.filename === filename);
+        if (!row) return;
+        if (!confirm(`Deploy "${filename}" to Facebook immediately?`)) return;
+
+        isPosting = true;
+        setBotStatus('running');
+        document.getElementById('active-task-ui').classList.remove('hidden');
+        document.getElementById('task-filename').textContent = filename;
+        document.getElementById('task-progress-bar').style.width = '10%';
+
+        try {
+            fetch('/api/post-now', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ 
+                    filename, 
+                    title: (row.caption || row.title || '') + '\n\n' + (row.hashtags || ''), 
+                    source_url: row.source_url || '', 
+                    profile: row.profile || 'Automation_1',
+                    transform: row.bypass_copyright === '1'
+                })
+            });
+            showToast('Deployment sequence triggered.', 'info');
+        } catch (e) { isPosting = false; setBotStatus('idle'); }
+    }
+
+    function setBotStatus(status) {
+        const dot = document.getElementById('bot-dot');
+        const text = document.getElementById('bot-status-text');
+        if (status === 'running') {
+            dot.className = 'w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse ring-4 ring-indigo-500/20';
+            text.textContent = 'Busy';
+            text.className = 'text-[10px] font-bold text-indigo-500 uppercase';
+        } else {
+            dot.className = 'w-2.5 h-2.5 rounded-full bg-slate-300';
+            text.textContent = 'Idle';
+            text.className = 'text-[10px] font-bold text-slate-400 uppercase';
+        }
+    }
+
+    async function pollLogs() {
+        try {
+            // Check Download Progress (Incremental Sync)
+            const syncRes = await fetch('/api/download-progress');
+            if (syncRes.ok) {
+                const syncData = await syncRes.json();
+                if (syncData.status === 'running') {
+                    // Force a faster data reload during active sync
+                    loadData();
+                    setTimeout(pollLogs, 3000); // Poll faster
+                    return;
+                }
+            }
+
+            const res = await fetch('/api/post-progress');
+            if (res.ok) {
+                const data = await res.json();
+                const logBox = document.getElementById('log-container');
+                if (data.logs && data.logs.length) {
+                    // Modern log rendering with time markers and distinct style
+                    logBox.innerHTML = data.logs.map(log => {
+                        const isError = log.includes('❌') || log.includes('CRITICAL');
+                        const isSuccess = log.includes('✅') || log.includes('🎉');
+                        let colorClass = 'text-slate-400';
+                        if (isError) colorClass = 'text-red-400';
+                        if (isSuccess) colorClass = 'text-emerald-400';
+                        return `<div class="${colorClass}">${log}</div>`;
+                    }).join('');
+                    logBox.scrollTop = logBox.scrollHeight;
+                }
+
+                if (data.status === 'running') {
+                    isPosting = true;
+                    setBotStatus('running');
+                    document.getElementById('active-task-ui').classList.remove('hidden');
+                    document.getElementById('task-filename').textContent = data.filename || 'Engine Active';
+
+                    // Update Row specific progress if exists
+                    const rowContainer = document.getElementById(`row-progress-container-${data.filename}`);
+                    if (rowContainer) {
+                        rowContainer.classList.remove('hidden');
+                        const progress = data.progress || 10;
+                        const bar = document.getElementById(`row-progress-bar-${data.filename}`);
+                        const text = document.getElementById(`row-progress-text-${data.filename}`);
+                        if (bar) bar.style.width = progress + '%';
+                        if (text) text.textContent = progress + '%';
+                        document.getElementById('task-progress-bar').style.width = progress + '%';
+                    }
+                    setTimeout(pollLogs, 1500);
+                } else {
+                    if (isPosting) {
+                        isPosting = false;
+                        document.getElementById('active-task-ui').classList.add('hidden');
+                        document.getElementById('task-progress-bar').style.width = '0%';
+                        // Hide all row progress bars
+                        document.querySelectorAll('[id^="row-progress-container-"]').forEach(el => el.classList.add('hidden'));
+                        loadData();
+                    }
+                    setBotStatus('idle');
+                    setTimeout(pollLogs, 4000);
+                }
+            }
+        } catch { setTimeout(pollLogs, 4000); }
+    }
+
+    function autoSchedule() {
+        if (!selectedFileNames.size) { showToast('Select assets to schedule.', 'warn'); return; }
+
+        let cursor = new Date();
+        cursor.setMinutes(0, 0, 0);
+        cursor.setHours(cursor.getHours() + 1);
+
+        let i = 0;
+        for (const filename of selectedFileNames) {
+            const row = originalData.find(r => r.filename === filename);
+            if (!row) continue;
+
+            if (cursor.getHours() < 8) cursor.setHours(8, 0);
+            else if (cursor.getHours() >= 22) { cursor.setDate(cursor.getDate() + 1); cursor.setHours(8, 0); }
+            
+            row.scheduled_time = cursor.toISOString();
+            row.status = 'Scheduled';
+            cursor.setMinutes(cursor.getMinutes() + 120);
+            i++;
+        }
+
+        applyFilters();
+        saveCsv();
+        showToast(`Auto-scheduled ${i} items.`, 'success');
+    }
+
+    async function postSelected() {
+        if (!selectedFileNames.size) { showToast('Please select assets.', 'warn'); return; }
+
+        const list = Array.from(selectedFileNames);
+        showToast(`Bulk deployment of ${list.length} items starting...`, 'info');
+        for (const filename of list) {
+            // Sequential trigger (simple version)
+            while (isPosting) { await new Promise(r => setTimeout(r, 2000)); }
+            postNow(filename);
+            await new Promise(r => setTimeout(r, 5000)); // Buffer
+        }
+    }
+
+    async function deleteSelected() {
+        if (!selectedFileNames.size) return;
+        if (!confirm(`Erase ${selectedFileNames.size} items from engine?`)) return;
+
+        const list = Array.from(selectedFileNames);
+        for(const filename of list) {
+            const origIdx = originalData.findIndex(r => r.filename === filename);
+            if(origIdx !== -1) originalData.splice(origIdx, 1);
+            fetch(`/api/video/${filename}`, { method: 'DELETE' });
+            selectedFileNames.delete(filename);
+        }
+        applyFilters();
+        showToast('Assets purged.', 'success');
+    }
+
+    function esc(s) { return (s || '').replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
+
+    // Global toast replaced by base.html SOP system
+
+    // Modal Video player
+    const modal = document.getElementById('videoModal');
+    const vidPlayer = document.getElementById('modalVideo');
+    const modalLoader = document.getElementById('modalLoader');
+
+    async function playVideo(filename, title, source_url) {
+        document.getElementById('modalTitle').textContent = 'PREVIEW: ' + (title || filename).toUpperCase();
+        modalLoader.classList.remove('hidden');
+        vidPlayer.classList.add('hidden');
+        modal.showModal();
+        try {
+            const res = await fetch('/api/download_jit_preview', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ filename, source_url })
+            });
+            const data = await res.json();
+            modalLoader.classList.add('hidden');
+            if (res.ok && data.success) {
+                vidPlayer.src = data.url;
+                vidPlayer.classList.remove('hidden');
+            } else {
+                modal.close();
+                showToast('Failed to fetch media.', 'error');
+            }
+        } catch (e) { modal.close(); }
+    }
+
+    function closeModal() {
+        vidPlayer.pause();
+        vidPlayer.src = '';
+        modal.close();
+    }
+
+    async function handleUrlParams() {
+        const params = new URLSearchParams(window.location.search);
+        const status = params.get('status');
+        const creator = params.get('creator');
+        
+        if (status) document.getElementById('statusFilter').value = status;
+        if (creator) {
+            // Might need a delay or wait for originalData
+            document.getElementById('creatorFilter').value = creator;
+        }
+        applyFilters();
+    }
+
+    window.onload = async () => {
+        await loadData();
+        handleUrlParams();
+        pollLogs();
+        setInterval(loadData, 10000);
+    };
+</script>
+{% endblock %}

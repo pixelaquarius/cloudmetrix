@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+
+{% block title %}History - CloudMetrix{% endblock %}
+{% block breadcrumb %}History Analytics{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Business Manager</h1>
+    <p class="text-slate-500 mt-1">Metrics overview and archival data.</p>
+</div>
+
+<!-- KPIs -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <div class="card p-5 border-l-4 border-l-slate-400">
+        <div class="text-slate-500 dark:text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Total Vault Items</div>
+        <div class="text-3xl font-light text-slate-900 dark:text-white" id="m_synced">-</div>
+    </div>
+    <div class="card p-5 border-l-4 border-l-indigo-400 dark:border-l-indigo-600">
+        <div class="text-slate-500 dark:text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">In Queue / Pending</div>
+        <div class="text-3xl font-light text-slate-900 dark:text-white" id="m_pending">-</div>
+    </div>
+    <div class="card p-5 border-l-4 border-l-emerald-400 dark:border-l-emerald-600">
+        <div class="text-slate-500 dark:text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Published Success</div>
+        <div class="text-3xl font-light text-slate-900 dark:text-white" id="m_posted">-</div>
+    </div>
+</div>
+
+<!-- History Table -->
+<div class="card overflow-hidden">
+    <div class="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
+        <h3 class="font-medium text-slate-700 dark:text-slate-200">Execution Log</h3>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse min-w-[800px]">
+            <thead class="bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
+                <tr>
+                    <th class="p-3 font-semibold text-[10px] tracking-wider uppercase">File Name</th>
+                    <th class="p-3 font-semibold text-[10px] tracking-wider uppercase pl-6">Caption Snapshot</th>
+                    <th class="p-3 font-semibold text-[10px] tracking-wider uppercase">Timestamp</th>
+                    <th class="p-3 font-semibold text-[10px] tracking-wider uppercase">Final Status</th>
+                </tr>
+            </thead>
+            <tbody id="history-body" class="divide-y divide-slate-100 dark:divide-slate-800 text-slate-600 dark:text-slate-300 bg-slate-50/30 dark:bg-slate-900/10">
+                <!-- Data -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal for playback -->
+<dialog id="videoModal" class="bg-transparent m-auto p-0 backdrop:bg-slate-900/80 backdrop:backdrop-blur-sm open:animate-in open:fade-in-0">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded shadow-xl overflow-hidden w-full max-w-sm flex flex-col">
+        <div class="flex items-center justify-between p-2 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
+            <span class="font-medium text-slate-600 dark:text-slate-300 text-xs px-2" id="modalTitle">Playback</span>
+            <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-white p-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+        <div class="bg-black relative aspect-[9/16] flex items-center justify-center">
+            <video id="modalVideo" class="max-h-[60vh] w-auto h-full object-contain" controls autoplay></video>
+        </div>
+    </div>
+</dialog>
+
+<script>
+async function loadData() {
+    try {
+        const response = await fetch('/api/load-csv');
+        if (response.ok) {
+            const data = await response.json();
+            const rows = data.rows || [];
+            
+            let synced = rows.length;
+            let pending = 0;
+            let posted = 0;
+
+            const tbody = document.getElementById('history-body');
+            tbody.innerHTML = '';
+
+            rows.forEach(row => {
+                if (row.status === 'Done') posted++;
+                else pending++;
+
+                const isCompleted = row.status === 'Done';
+                const isScheduled = row.status === 'Scheduled';
+                
+                let statusClass = 'text-slate-500 bg-slate-100 dark:bg-slate-800 dark:text-slate-400';
+                if (isCompleted) statusClass = 'text-emerald-700 bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400';
+                else if (isScheduled) statusClass = 'text-indigo-700 bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-400';
+
+                let timeDisplay = row.scheduled_time || 'N/A';
+                if(row.scheduled_time) {
+                    try { 
+                        const d = new Date(row.scheduled_time);
+                        timeDisplay = d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+                    } catch(e){}
+                }
+
+                const thumbUri = row.thumbnail_path ? `/data/thumbnails/${row.thumbnail_path}` : '';
+                const titleHtml = thumbUri 
+                    ? `<div class="flex items-center space-x-3 cursor-pointer group" onclick="playVideo('${row.filename}')"><img src="${thumbUri}" class="w-6 h-8 object-cover rounded opacity-80 group-hover:opacity-100 border border-slate-200 dark:border-slate-700"><span class="truncate max-w-[250px] group-hover:text-indigo-600 dark:group-hover:text-indigo-400">${row.title || 'Untitled'}</span></div>`
+                    : `<span class="truncate max-w-[250px]">${row.title || 'Untitled'}</span>`;
+
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-100 dark:hover:bg-slate-800/50">
+                        <td class="p-3 font-mono text-[11px]">${row.filename}</td>
+                        <td class="p-3 text-xs w-[300px]">${titleHtml}</td>
+                        <td class="p-3 text-[11px] text-slate-500">${timeDisplay}</td>
+                        <td class="p-3">
+                            <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold ${statusClass}">
+                                ${row.status}
+                            </span>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            document.getElementById('m_synced').innerText = synced;
+            document.getElementById('m_pending').innerText = pending;
+            document.getElementById('m_posted').innerText = posted;
+        }
+    } catch(e) { console.error(e); }
+}
+
+const modal = document.getElementById('videoModal');
+const vidPlayer = document.getElementById('modalVideo');
+function playVideo(filename) {
+    vidPlayer.src = `/data/downloads/${filename}`;
+    modal.showModal();
+}
+function closeModal() {
+    vidPlayer.pause();
+    vidPlayer.src = "";
+    modal.close();
+}
+modal.addEventListener('click', (e) => { if(e.target===modal) closeModal(); });
+
+window.onload = loadData;
+</script>
+{% endblock %}

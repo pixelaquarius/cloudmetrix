@@ -1,0 +1,389 @@
+{% extends "base.html" %}
+
+{% block title %}Sync Center - CloudMetrix{% endblock %}
+{% block breadcrumb %}Sync Center{% endblock %}
+
+{% block content %}
+<div class="space-y-6 flex flex-col h-[calc(100vh-160px)]">
+    <!-- Header -->
+    <div class="shrink-0">
+        <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Media Sync Center</h1>
+        <p class="text-slate-500 text-sm mt-0.5">Ingest high-performing content from creators directly into your engine.</p>
+    </div>
+
+    <div class="flex-1 flex flex-col lg:flex-row gap-6 overflow-hidden">
+        <!-- Left Sidebar: Controls -->
+        <div class="w-full lg:w-80 shrink-0 flex flex-col gap-6 overflow-y-auto pr-1">
+            <div class="card p-5 border-indigo-100 dark:border-indigo-900/20">
+                <h3 class="font-bold text-[10px] uppercase tracking-[0.2em] text-slate-400 mb-6">Configuration</h3>
+                
+                <div class="space-y-5">
+                    <div class="space-y-1.5">
+                        <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Target source</label>
+                        <div class="relative">
+                            <input type="text" id="target_url" class="input-field py-2.5 pl-9 text-sm" placeholder="@username or URL" value="">
+                            <svg class="w-4 h-4 absolute left-3 top-3 text-slate-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-1.5">
+                        <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Fetch Depth</label>
+                        <select id="limit_videos" class="input-field py-2.5 text-sm">
+                            <option value="10">Latest 10 Assets</option>
+                            <option value="20" selected>Latest 20 Assets</option>
+                            <option value="50">Latest 50 Assets</option>
+                        </select>
+                    </div>
+
+                    <div class="space-y-1.5">
+                        <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Ingestion Mode</label>
+                        <select id="sync_mode" class="input-field py-2.5 text-sm">
+                            <option value="auto">Direct to Hub (Auto)</option>
+                            <option value="preview" selected>Review & Pick (Manual)</option>
+                        </select>
+                        <p class="text-[10px] text-slate-400 italic leading-relaxed">Manual mode allows you to curate content before engine ingestion.</p>
+                    </div>
+
+                    <button id="btn_sync" onclick="startSync()" class="btn btn-primary w-full py-3 mt-2 shadow-lg shadow-indigo-100 dark:shadow-none">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        Initialize Sync
+                    </button>
+                </div>
+            </div>
+
+            <!-- Real-time Console -->
+            <div id="live_queue" class="card flex-1 flex flex-col overflow-hidden hidden">
+                <div class="p-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 flex items-center justify-between shrink-0">
+                    <h3 class="font-bold text-[10px] uppercase tracking-wider text-slate-400">Node Logs</h3>
+                    <div class="flex h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                </div>
+                <div class="flex-1 bg-slate-950 p-4 font-mono text-[10px] text-indigo-400/90 leading-relaxed overflow-y-auto shadow-inner" id="queue_log">
+                    Awaiting payload...
+                </div>
+            </div>
+            
+            <div id="status_msg" class="hidden text-[11px] font-bold uppercase tracking-widest p-4 rounded-xl border flex items-center gap-3"></div>
+        </div>
+
+        <!-- Right Column: Workspace -->
+        <div class="flex-1 flex flex-col min-w-0 overflow-hidden relative">
+            
+            <!-- Success Overlay: View Hub -->
+            <div id="success_overlay" class="absolute inset-0 z-[40] flex flex-col items-center justify-center bg-white/95 dark:bg-slate-900/95 backdrop-blur-md hidden transition-all duration-500 opacity-0 scale-95">
+                <div class="w-20 h-20 bg-emerald-100 dark:bg-emerald-500/10 rounded-full flex items-center justify-center mb-6">
+                    <svg class="w-10 h-10 text-emerald-500" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                </div>
+                <h2 class="text-2xl font-bold text-slate-800 dark:text-white mb-2">Sync Sequence Complete</h2>
+                <p class="text-slate-500 dark:text-slate-400 mb-8 max-w-sm text-center">Your curated assets have been synchronized with the Automation Hub.</p>
+                <div class="flex gap-3">
+                    <button onclick="resetSync()" class="btn btn-outline py-2.5 px-6">New Sync</button>
+                    <a href="/editor" class="btn btn-primary py-2.5 px-8 shadow-xl shadow-indigo-100 dark:shadow-none">View in Hub</a>
+                </div>
+            </div>
+
+            <!-- Loading Backdrop -->
+            <div id="sync_overlay" class="absolute inset-0 bg-slate-50/60 dark:bg-slate-900/60 backdrop-blur-[2px] z-[30] flex flex-col items-center justify-center rounded-2xl hidden">
+                 <div class="bg-white dark:bg-slate-800 p-8 rounded-3xl shadow-2xl flex flex-col items-center border border-slate-100 dark:border-slate-700">
+                    <svg class="w-12 h-12 text-indigo-500 animate-spin mb-6" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                    <span class="text-slate-800 dark:text-white font-bold tracking-tight text-lg">Extracting Media...</span>
+                    <p class="text-slate-400 text-xs mt-1">This may take up to 2 minutes.</p>
+                 </div>
+            </div>
+            
+            <!-- Default Placeholder -->
+            <div id="placeholder_panel" class="flex-1 flex flex-col items-center justify-center p-10 border border-dashed border-slate-200 dark:border-slate-800 rounded-3xl bg-slate-50/30 dark:bg-slate-900/10">
+                <div class="w-16 h-16 bg-slate-100 dark:bg-slate-800/50 rounded-2xl flex items-center justify-center mb-6 text-slate-300 dark:text-slate-700">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"></path></svg>
+                </div>
+                <h3 class="text-lg font-bold text-slate-400 dark:text-slate-600">Sync Terminal Idle</h3>
+                <p class="text-sm text-slate-400 mt-2 max-w-xs text-center leading-relaxed">Configure the source on the left to start analyzing content.</p>
+            </div>
+
+            <!-- Preview Panel -->
+            <div class="card h-full flex flex-col overflow-hidden hidden" id="preview_panel">
+                <div class="p-5 border-b border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-900/50 flex justify-between items-center z-10 shrink-0">
+                    <div class="flex items-center space-x-4">
+                        <input type="checkbox" id="selectAllPreview" onchange="toggleSelectAllPreview()" checked class="w-5 h-5 rounded-md border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer transition-all">
+                        <div>
+                            <h3 class="font-bold text-slate-900 dark:text-white text-sm">Curation Grid</h3>
+                            <p class="text-[10px] text-slate-400 uppercase font-bold tracking-widest mt-0.5" id="selection_count">0 Items Analyzed</p>
+                        </div>
+                    </div>
+                    <button onclick="saveSelectedPreview()" id="save_preview_btn" class="btn btn-primary px-6 py-2.5 text-xs shadow-lg shadow-indigo-100 dark:shadow-none">
+                        Ingest to Engine
+                    </button>
+                </div>
+                <div class="p-6 flex-1 bg-white dark:bg-slate-950 overflow-y-auto">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6" id="preview_grid">
+                        <!-- Cards -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Preview Modal -->
+<dialog id="embedModal" class="bg-transparent m-auto p-0 backdrop:bg-slate-950/90 backdrop:backdrop-blur-sm">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl overflow-hidden w-80 max-w-[90vw] flex flex-col relative aspect-[9/16]">
+        <button onclick="closePreview()" class="absolute top-4 right-4 w-10 h-10 rounded-full bg-black/20 backdrop-blur-md text-white flex items-center justify-center z-50 hover:bg-red-500 transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+        <div class="flex-1 bg-black flex items-center justify-center relative">
+             <div id="modal_vid_loader" class="absolute inset-0 flex items-center justify-center bg-black z-10">
+                <svg class="w-8 h-8 text-indigo-500 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+             </div>
+             <video id="pVideo" class="w-full h-full object-contain hidden" controls autoplay></video>
+        </div>
+    </div>
+</dialog>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let globalPreviewRecords = [];
+
+async function startSync() {
+    const url = document.getElementById('target_url').value;
+    const limit = document.getElementById('limit_videos').value;
+    const mode = document.getElementById('sync_mode').value;
+    
+    const btn = document.getElementById('btn_sync');
+    const statusBox = document.getElementById('status_msg');
+    
+    if (!url) {
+        showToast('Please provide a source URL.', 'error');
+        return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = `<svg class="w-4 h-4 mr-2 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Initializing...`;
+    
+    document.getElementById('sync_overlay').classList.remove('hidden');
+    document.getElementById('live_queue').classList.remove('hidden');
+
+    try {
+        const res = await fetch('/api/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url, limit, mode })
+        });
+        const data = await res.json();
+        
+        if (res.ok) {
+            pollProgress();
+        } else {
+            showToast(data.error || 'Sync initialization failed.', 'error');
+            resetSyncUI();
+        }
+    } catch(e) {
+        showToast('Node unreachable.', 'error');
+        resetSyncUI();
+    }
+}
+
+function resetSyncUI() {
+    const btn = document.getElementById('btn_sync');
+    btn.disabled = false;
+    btn.innerHTML = `<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg> Initialize Sync`;
+    document.getElementById('sync_overlay').classList.add('hidden');
+}
+
+async function pollProgress() {
+    try {
+        const res = await fetch('/api/download-progress');
+        if (res.ok) {
+            const data = await res.json();
+            
+            const logBox = document.getElementById('queue_log');
+            if(data.logs.length) {
+                logBox.innerHTML = data.logs.join('\n');
+                logBox.scrollTop = logBox.scrollHeight;
+            }
+            
+            const statusBox = document.getElementById('status_msg');
+            
+            if (data.status === 'running') {
+                statusBox.className = "flex p-4 rounded-xl border bg-indigo-50/10 border-indigo-100 dark:border-indigo-900/30 text-indigo-600 dark:text-indigo-400 items-center gap-3";
+                statusBox.innerHTML = `<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> SYNCING: ${data.progress_percent}%`;
+                statusBox.classList.remove('hidden');
+                setTimeout(pollProgress, 1500);
+            } else if (data.status === 'preview_ready') {
+                showToast('Payload analyzed. Ready for review.', 'success');
+                resetSyncUI();
+                globalPreviewRecords = data.results || [];
+                renderPreviewGrid();
+            } else if (data.status === 'idle') {
+                if (data.total > 0 && data.progress_percent === 100) {
+                    showToast('Auto-sync complete.', 'success');
+                }
+                resetSyncUI();
+            }
+        }
+    } catch(e) {
+        setTimeout(pollProgress, 2000);
+    }
+}
+
+function renderPreviewGrid() {
+    document.getElementById('placeholder_panel').classList.add('hidden');
+    document.getElementById('preview_panel').classList.remove('hidden');
+    document.getElementById('selection_count').textContent = `${globalPreviewRecords.length} Assets Analyzed`;
+    
+    const grid = document.getElementById('preview_grid');
+    grid.innerHTML = '';
+    
+    globalPreviewRecords.forEach((rec, idx) => {
+        const thumbUri = rec.thumbnail_path ? `/data/thumbnails/${rec.thumbnail_path}` : '';
+        const bgImg = thumbUri ? `background-image: url('${thumbUri}');` : 'background-color: #f1f5f9;';
+        
+        grid.innerHTML += `
+            <div id="prev_card_${idx}" class="group relative rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden hover:shadow-2xl hover:shadow-indigo-100 dark:hover:shadow-none hover:-translate-y-1 transition-all duration-300 flex flex-col h-[320px]">
+                <div class="absolute top-0 left-0 w-full h-1 bg-indigo-500 hidden z-[30]" id="loader_bar_${idx}"></div>
+                
+                <div class="absolute inset-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm hidden z-[25] flex flex-col items-center justify-center" id="saved_overlay_${idx}">
+                     <div class="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center text-white shadow-lg mb-2">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"></path></svg>
+                     </div>
+                     <span class="text-emerald-600 dark:text-emerald-400 font-bold text-xs uppercase tracking-widest">Added</span>
+                </div>
+
+                <div class="absolute top-3 left-3 z-[20]">
+                    <input type="checkbox" id="chk_${idx}" checked class="prev-chk w-5 h-5 rounded-md border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer shadow-sm transition-all">
+                </div>
+                
+                <div class="h-[180px] w-full bg-slate-50 dark:bg-slate-950 relative cursor-pointer overflow-hidden" onclick="previewVideo('${rec.filename}', '${rec.source_url}', ${idx})">
+                    <div class="absolute inset-0 bg-center bg-cover transition-transform duration-700 group-hover:scale-110" style="${bgImg}"></div>
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent group-hover:from-black/40 transition-all"></div>
+                    <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" id="play_btn_${idx}">
+                         <div class="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white ring-1 ring-white/50 shadow-2xl">
+                             <svg class="w-6 h-6 ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>
+                         </div>
+                    </div>
+                </div>
+                
+                <div class="p-4 flex-1 flex flex-col bg-white dark:bg-slate-900">
+                    <h4 class="font-bold text-slate-800 dark:text-slate-200 text-xs line-clamp-3 leading-relaxed mb-3" title="${rec.title}">${rec.title || 'Untitled Payload'}</h4>
+                    <div class="mt-auto flex items-center justify-between">
+                         <span class="text-[9px] font-mono text-slate-400 truncate max-w-[120px]">${rec.filename}</span>
+                         <span class="p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-indigo-500 transition-colors">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                         </span>
+                    </div>
+                </div>
+            </div>`;
+    });
+}
+
+function closePreview() {
+    const pVid = document.getElementById('pVideo');
+    pVid.pause();
+    pVid.src = "";
+    document.getElementById('embedModal').close();
+}
+
+function toggleSelectAllPreview() {
+    const isChecked = document.getElementById('selectAllPreview').checked;
+    document.querySelectorAll('.prev-chk').forEach(el => el.checked = isChecked);
+}
+
+async function saveSelectedPreview() {
+    const selected = [];
+    const selectedIndices = [];
+    
+    globalPreviewRecords.forEach((rec, idx) => {
+        if(document.getElementById(`chk_${idx}`).checked) {
+            selected.push(rec);
+            selectedIndices.push(idx);
+        }
+    });
+    
+    if(selected.length === 0) {
+        showToast('Selection is empty.', 'warn');
+        return;
+    }
+    
+    const btn = document.getElementById('save_preview_btn');
+    const origText = btn.innerHTML;
+    btn.innerHTML = `<svg class="w-4 h-4 mr-2 inline animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Saving...`;
+    btn.disabled = true;
+    
+    try {
+        const res = await fetch('/api/save-preview', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ records: selected })
+        });
+        
+        if(res.ok) {
+             selectedIndices.forEach(idx => {
+                 document.getElementById(`saved_overlay_${idx}`).classList.remove('hidden');
+             });
+             showToast(`Injected ${selected.length} assets to hub.`, 'success');
+             
+             // Success transition
+             const overlay = document.getElementById('success_overlay');
+             overlay.classList.remove('hidden');
+             setTimeout(() => {
+                 overlay.classList.add('opacity-100', 'scale-100');
+                 overlay.classList.remove('scale-95');
+             }, 100);
+        } else {
+             const data = await res.json();
+             showToast(data.error || 'Failed to save.', 'error');
+             btn.innerHTML = origText;
+             btn.disabled = false;
+        }
+    } catch(e) {
+        showToast('Network error.', 'error');
+        btn.innerHTML = origText;
+        btn.disabled = false;
+    }
+}
+
+function resetSync() {
+    const overlay = document.getElementById('success_overlay');
+    overlay.classList.remove('opacity-100', 'scale-100');
+    overlay.classList.add('opacity-0', 'scale-95');
+    setTimeout(() => {
+        overlay.classList.add('hidden');
+        document.getElementById('preview_panel').classList.add('hidden');
+        document.getElementById('placeholder_panel').classList.remove('hidden');
+    }, 500);
+    // Global toast replaced by base.html SOP system
+}
+
+async function previewVideo(filename, source_url, idx) {
+    const vid = document.getElementById('pVideo');
+    const loader = document.getElementById('modal_vid_loader');
+    vid.classList.add('hidden');
+    loader.classList.remove('hidden');
+    document.getElementById('embedModal').showModal();
+    
+    try {
+        const res = await fetch('/api/download_jit_preview', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename, source_url })
+        });
+        const data = await res.json();
+        loader.classList.add('hidden');
+        if(res.ok && data.success) {
+            vid.src = data.url;
+            vid.classList.remove('hidden');
+        } else {
+            document.getElementById('embedModal').close();
+            showToast('Failed to load asset.', 'error');
+        }
+    } catch(e) {
+        document.getElementById('embedModal').close();
+    }
+}
+</script>
+
+<style>
+#queue_log::-webkit-scrollbar { width: 4px; }
+#queue_log::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+</style>
+{% endblock %}

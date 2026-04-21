@@ -1,0 +1,274 @@
+{% extends "base.html" %}
+
+{% block title %}Live Operations - CloudMetrix{% endblock %}
+{% block breadcrumb %}Live Operations{% endblock %}
+
+{% block content %}
+<div class="space-y-6 flex flex-col h-[calc(100vh-160px)]">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shrink-0">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Live Operations Node</h1>
+            <p class="text-slate-500 text-sm mt-0.5">Real-time telemetry and manual engine overrides.</p>
+        </div>
+        <div class="flex items-center gap-2">
+            <div class="px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                <span id="bot-status-dot" class="w-2 h-2 rounded-full bg-slate-300"></span>
+                <span id="bot-status-text">Idle</span>
+            </div>
+            <button onclick="loadData()" class="btn btn-outline py-2 px-3 text-xs">
+                <svg class="w-3.5 h-3.5 mr-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                Sync Operations
+            </button>
+        </div>
+    </div>
+
+    <div class="flex-1 flex flex-col lg:flex-row gap-6 overflow-hidden">
+        <!-- Left Column: Command Queue -->
+        <div class="flex-1 flex flex-col min-w-0">
+            <div class="card flex-1 flex flex-col overflow-hidden">
+                <div class="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex items-center justify-between shrink-0">
+                    <h3 class="font-bold text-[10px] uppercase tracking-widest text-slate-400">Payload Queue</h3>
+                    <span id="queue-count" class="text-[10px] font-bold text-indigo-500 bg-indigo-50 dark:bg-indigo-500/10 px-2 py-0.5 rounded-full">0 Assets</span>
+                </div>
+                <div class="flex-1 overflow-y-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead class="bg-white dark:bg-slate-950 text-slate-400 border-b border-slate-50 dark:border-slate-800 sticky top-0 z-10">
+                            <tr>
+                                <th class="pl-6 pr-3 py-3 text-[10px] font-bold uppercase tracking-widest">Asset</th>
+                                <th class="px-3 py-3 text-[10px] font-bold uppercase tracking-widest">Target Identity</th>
+                                <th class="px-6 py-3 text-[10px] font-bold uppercase tracking-widest text-right">Execute</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pending-body" class="divide-y divide-slate-50 dark:divide-slate-800/50">
+                            <tr><td colspan="3" class="py-20 text-center text-slate-400 text-xs italic">Awaiting queue synchronization...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Telemetry Terminal -->
+        <div class="w-full lg:w-[450px] shrink-0 flex flex-col gap-6">
+            <div class="card flex-1 flex flex-col overflow-hidden border-indigo-100 dark:border-indigo-900/20 bg-slate-950">
+                <div class="p-4 border-b border-slate-800 flex items-center justify-between shrink-0">
+                    <div class="flex items-center gap-2">
+                        <div class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]"></div>
+                        <h3 class="font-bold text-[10px] uppercase tracking-widest text-emerald-500">Telemetry Stream</h3>
+                    </div>
+                    <button onclick="clearLogs()" class="text-[9px] font-bold text-slate-500 hover:text-slate-300 uppercase tracking-tighter">Clear Console</button>
+                </div>
+                <div id="term_log" class="flex-1 p-5 font-mono text-[11px] leading-relaxed text-indigo-400/90 overflow-y-auto selection:bg-indigo-500/30">
+                    <div class="text-slate-600 italic">// Engine handshake initialized...</div>
+                    <div class="text-slate-600 italic">// Awaiting manual payload trigger...</div>
+                </div>
+                <div id="active_job" class="hidden p-4 bg-indigo-950/50 border-t border-indigo-900">
+                    <div class="flex items-center gap-3 mb-3">
+                        <svg class="w-4 h-4 text-indigo-400 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                        <span class="text-[10px] font-bold text-indigo-300 uppercase tracking-widest">Active Sequence:</span>
+                    </div>
+                    <div id="job_filename" class="text-xs text-white font-mono truncate bg-indigo-900/40 p-2 rounded-lg border border-indigo-800/50 mb-1 opacity-40">Awaiting payload trigger...</div>
+                    <div class="h-1 w-full bg-slate-800 rounded-full overflow-hidden mt-3">
+                        <div id="job_progress" class="h-full bg-indigo-500 transition-all duration-1000" style="width: 10%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let rowsData = [];
+    let accountsList = [];
+    let isPosting = false;
+
+    async function loadAccounts() {
+        try {
+            const res = await fetch('/api/accounts');
+            if (res.ok) {
+                const data = await res.json();
+                accountsList = data.accounts || [];
+            }
+        } catch (e) {}
+    }
+
+    async function loadData() {
+        await loadAccounts();
+        try {
+            const res = await fetch('/api/load-csv');
+            if (res.ok) {
+                const data = await res.json();
+                rowsData = data.rows || [];
+                renderTable();
+            }
+        } catch (e) {}
+    }
+
+    function renderTable() {
+        const tbody = document.getElementById('pending-body');
+        const pending = rowsData.filter(r => r.status === 'Pending');
+        document.getElementById('queue-count').textContent = `${pending.length} Assets`;
+
+        if (!pending.length) {
+            tbody.innerHTML = `<tr><td colspan="3" class="py-20 text-center text-slate-400 text-xs italic">No pending payloads detected in engine queue.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = pending.map(row => {
+            const thumb = row.thumbnail_path
+                ? `<img src="/data/thumbnails/${row.thumbnail_path}" class="w-10 h-14 object-cover rounded-xl ring-1 ring-slate-100 dark:ring-slate-800 shadow-sm" title="Preview">`
+                : `<div class="w-10 h-14 bg-slate-50 dark:bg-slate-900 rounded-xl flex items-center justify-center text-slate-200"><svg class="w-5 h-5 font-bold" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/></svg></div>`;
+            
+            let profileOptions = accountsList.map(acc => 
+                `<option value="${acc.profile}" ${row.profile === acc.profile ? 'selected' : ''}>${acc.name} (${acc.profile})</option>`
+            ).join('');
+            if (!profileOptions) profileOptions = `<option value="Automation_1">Automation_1 (Default)</option>`;
+
+            return `
+                <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-900/20 transition-all group">
+                    <td class="pl-6 pr-3 py-4 flex items-center gap-4">
+                        ${thumb}
+                        <div class="min-w-0">
+                            <div class="font-bold text-slate-800 dark:text-slate-200 text-xs truncate max-w-[200px]" title="${esc(row.title)}">${row.title || 'Untitled Asset'}</div>
+                            <div class="text-[10px] text-slate-400 font-mono mt-1 opacity-60 truncate max-w-[200px]">${row.filename}</div>
+                        </div>
+                    </td>
+                    <td class="px-3 py-4">
+                        <select onchange="updateRowProfile('${esc(row.filename)}', this.value)" 
+                                class="bg-transparent text-[10px] font-bold text-indigo-500 border-none p-0 focus:ring-0 cursor-pointer hover:underline uppercase tracking-tight">
+                            ${profileOptions}
+                        </select>
+                    </td>
+                    <td class="px-6 py-4 text-right">
+                        <button onclick="postNow('${esc(row.filename)}')"
+                            class="btn btn-primary py-2 px-6 text-[10px] font-bold uppercase tracking-widest shadow-lg shadow-indigo-100 dark:shadow-none ${isPosting ? 'opacity-30 pointer-events-none' : ''}">
+                            Execute
+                        </button>
+                    </td>
+                </tr>`;
+        }).join('');
+    }
+
+    async function updateRowProfile(filename, newProfile) {
+        const row = rowsData.find(r => r.filename === filename);
+        if (row) {
+            row.profile = newProfile;
+            await fetch('/api/save-csv', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ rows: rowsData })
+            });
+        }
+    }
+
+    function esc(s) { return (s || '').replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
+
+    async function postNow(filename) {
+        if (isPosting) return;
+        const row = rowsData.find(r => r.filename === filename);
+        if (!row) return;
+        const content = (row.caption || row.title || '') + '\n\n' + (row.hashtags || '');
+        // Confirmation removed for automated flow
+        // if (!confirm(`Initialize manual deployment sequence for: ${filename}?`)) return;
+
+        isPosting = true;
+        setBotStatus('running');
+        renderTable();
+        document.getElementById('active_job').classList.remove('hidden');
+        document.getElementById('job_filename').textContent = filename;
+        document.getElementById('job_progress').style.width = '15%';
+
+        try {
+            fetch('/api/post-now', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ filename, title: content, source_url: row.source_url || '', profile: row.profile || 'Automation_1' })
+            });
+            pollProgress();
+        } catch (e) {
+            isPosting = false;
+            setBotStatus('idle');
+            renderTable();
+        }
+    }
+
+    function setBotStatus(status) {
+        const dot = document.getElementById('bot-status-dot');
+        const text = document.getElementById('bot-status-text');
+        if (status === 'running') {
+            dot.className = 'w-2 h-2 rounded-full bg-indigo-500 animate-pulse';
+            text.textContent = 'Engine Active';
+            text.className = 'text-indigo-500';
+        } else {
+            dot.className = 'w-2 h-2 rounded-full bg-slate-300';
+            text.textContent = 'Node Idle';
+            text.className = '';
+        }
+    }
+
+    async function pollProgress() {
+        try {
+            const res = await fetch('/api/post-progress');
+            if (res.ok) {
+                const data = await res.json();
+                const logBox = document.getElementById('term_log');
+                if (data.logs && data.logs.length) {
+                    // Update UI if job is running even if we didn't start it in this session
+                    if (data.status === 'running') {
+                        isPosting = true;
+                        document.getElementById('active_job').classList.remove('hidden');
+                        document.getElementById('job_filename').textContent = data.filename || 'Active Deployment';
+                    }
+                    logBox.innerHTML = data.logs.map(l => `<div class="mb-1 uppercase font-bold tracking-tighter opacity-80">> ${l}</div>`).join('');
+                }
+                logBox.scrollTop = logBox.scrollHeight;
+
+                if (data.status === 'running') {
+                    isPosting = true;
+                    setBotStatus('running');
+                    const bar = document.getElementById('job_progress');
+                    let cur = parseInt(bar.style.width) || 15;
+                    if (cur < 95) bar.style.width = (cur + 5) + '%';
+                    setTimeout(pollProgress, 1500);
+                } else {
+                    if (isPosting) {
+                        isPosting = false;
+                        document.getElementById('active_job').classList.add('hidden');
+                        showToast('Deployment sequence validated.', 'success');
+                        await loadData();
+                    }
+                    setBotStatus('idle');
+                    setTimeout(pollProgress, 3000);
+                }
+            }
+        } catch { setTimeout(pollProgress, 3000); }
+    }
+
+    function clearLogs() {
+        document.getElementById('term_log').innerHTML = '<div class="text-slate-600 italic">// Console cleared. Awaiting logs...</div>';
+    }
+
+    function showToast(msg, type = 'info') {
+        let container = document.getElementById('toast-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'toast-container';
+            container.className = 'fixed bottom-10 right-10 flex flex-col gap-3 z-[9999]';
+            document.body.appendChild(container);
+        }
+        const colors = { success: 'bg-emerald-600', error: 'bg-red-600', warn: 'bg-amber-500', info: 'bg-indigo-600' };
+        const t = document.createElement('div');
+        t.className = `${colors[type]} text-white text-[11px] font-bold uppercase tracking-widest px-6 py-3 rounded-xl shadow-2xl flex items-center gap-3 transition-all transform translate-y-4 opacity-0`;
+        t.innerHTML = msg;
+        container.appendChild(t);
+        requestAnimationFrame(() => { t.classList.remove('translate-y-4', 'opacity-0'); });
+        setTimeout(() => { t.classList.add('translate-y-4', 'opacity-0'); setTimeout(() => t.remove(), 300); }, 3500);
+    }
+
+    loadData();
+    setInterval(loadData, 10000);
+</script>
+{% endblock %}

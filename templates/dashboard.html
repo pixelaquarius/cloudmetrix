@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+
+{% block title %}Command Center - CloudMetrix{% endblock %}
+{% block breadcrumb %}Platform Dashboard{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <!-- Header Section -->
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+            <h1 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Command Center</h1>
+            <p class="text-slate-500 dark:text-slate-400 mt-1 uppercase tracking-widest text-[11px] font-bold">Real-time automation engine oversight</p>
+        </div>
+        <div class="flex items-center gap-3 flex-wrap">
+            <a href="/accounts" class="btn btn-outline py-2 px-4 text-xs font-bold shadow-sm flex items-center gap-2 border-indigo-200 dark:border-indigo-500/20 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                Connect Accounts
+            </a>
+            <a href="/downloader" class="btn btn-primary py-2 px-4 text-xs font-bold shadow-sm flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                Sync & Export Data
+            </a>
+            <div class="px-3 py-2 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 rounded-xl flex items-center gap-2.5 ml-2">
+                <span class="relative flex h-2 w-2">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                <span class="text-[11px] font-bold text-emerald-700 dark:text-emerald-400">System Uptime 99.9%</span>
+            </div>
+            <button onclick="window.location.reload()" class="btn btn-outline p-2 h-9 w-9" title="Refresh Dashboard">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Top Stats Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div class="card p-6 flex flex-col justify-between h-32 relative overflow-hidden group">
+            <div class="z-10">
+                <span class="text-[11px] font-bold text-slate-400 uppercase tracking-widest text-opacity-80">Library assets</span>
+                <div class="text-3xl font-bold mt-1 text-slate-900 dark:text-white">{{ videos_count }}</div>
+            </div>
+            <div class="absolute -right-2 -bottom-2 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity">
+                <svg class="w-24 h-24" fill="currentColor" viewBox="0 0 24 24"><path d="M7 4V20L17 12L7 4Z"></path></svg>
+            </div>
+        </div>
+        
+        <div onclick="window.location.href='/editor?status=Pending'" class="card p-6 flex flex-col justify-between h-32 relative overflow-hidden group border-indigo-100 dark:border-indigo-500/20 cursor-pointer hover:border-indigo-400 transition-all">
+            <div class="z-10">
+                <span class="text-[11px] font-bold text-indigo-500 uppercase tracking-widest text-opacity-80">Pending queue</span>
+                <div class="text-3xl font-bold mt-1 text-slate-900 dark:text-white">{{ pending + scheduled }}</div>
+            </div>
+            <div class="absolute -right-2 -bottom-2 opacity-[0.03] text-indigo-600 group-hover:opacity-[0.08] transition-opacity">
+                <svg class="w-24 h-24" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"></path></svg>
+            </div>
+        </div>
+
+        <div onclick="window.location.href='/editor?status=Done'" class="card p-6 flex flex-col justify-between h-32 relative overflow-hidden group cursor-pointer hover:border-emerald-400 transition-all">
+            <div class="z-10">
+                <span class="text-[11px] font-bold text-emerald-500 uppercase tracking-widest text-opacity-80">Successfully posted</span>
+                <div class="text-3xl font-bold mt-1 text-slate-900 dark:text-white">{{ posted }}</div>
+            </div>
+            <div class="absolute -right-2 -bottom-2 opacity-[0.03] text-emerald-600 group-hover:opacity-[0.08] transition-opacity">
+                <svg class="w-24 h-24" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"></path></svg>
+            </div>
+        </div>
+
+        <div class="card p-6 flex flex-col justify-between h-32 relative overflow-hidden group">
+            <div class="z-10">
+                <span class="text-[11px] font-bold text-slate-400 uppercase tracking-widest text-opacity-80">Active accounts</span>
+                <div class="text-3xl font-bold mt-1 text-slate-900 dark:text-white" id="active-acc-count">0</div>
+            </div>
+            <div class="absolute -right-2 -bottom-2 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity">
+                <svg class="w-24 h-24" fill="currentColor" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"></path></svg>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Main Stats Chart -->
+        <div class="card lg:col-span-2 p-8">
+            <div class="flex items-center justify-between mb-8">
+                <div>
+                    <h3 class="font-bold text-lg text-slate-900 dark:text-white flex items-center gap-2">
+                        Engagement performance
+                        <span class="text-[9px] px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-400 rounded-md font-bold uppercase tracking-widest border border-slate-200 dark:border-slate-700">Simulated Data</span>
+                    </h3>
+                    <p class="text-xs text-slate-500">Reels metrics normalized across all profiles</p>
+                </div>
+                <select class="btn btn-outline py-1.5 text-xs">
+                    <option>Last 30 Days</option>
+                    <option>Last 7 Days</option>
+                </select>
+            </div>
+            
+            <div class="space-y-6">
+                <!-- Bar 1 -->
+                <div class="space-y-2">
+                    <div class="flex justify-between text-xs font-bold">
+                        <span class="text-slate-600 dark:text-slate-400 uppercase tracking-tight">Average CTR (Click-Through)</span>
+                        <span class="text-indigo-600 text-sm">4.2% <span class="text-[10px] font-normal text-slate-400">↑ 12%</span></span>
+                    </div>
+                    <div class="h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                        <div class="h-full bg-indigo-500 rounded-full transition-all duration-1000" style="width: 0%" data-percent="85"></div>
+                    </div>
+                </div>
+                <!-- Bar 2 -->
+                <div class="space-y-2">
+                    <div class="flex justify-between text-xs font-bold">
+                        <span class="text-slate-600 dark:text-slate-400 uppercase tracking-tight">Watch retention rate (3s+)</span>
+                        <span class="text-emerald-500 text-sm">76.8% <span class="text-[10px] font-normal text-slate-400">↑ 5%</span></span>
+                    </div>
+                    <div class="h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                        <div class="h-full bg-emerald-500 rounded-full transition-all duration-1000" style="width: 0%" data-percent="74"></div>
+                    </div>
+                </div>
+                <!-- Bar 3 -->
+                <div class="space-y-2">
+                    <div class="flex justify-between text-xs font-bold">
+                        <span class="text-slate-600 dark:text-slate-400 uppercase tracking-tight">Viral coefficient score</span>
+                        <span class="text-indigo-400 text-sm">1.8 <span class="text-[10px] font-normal text-slate-400">Avg</span></span>
+                    </div>
+                    <div class="h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                        <div class="h-full bg-slate-400 dark:bg-slate-600 rounded-full transition-all duration-1000" style="width: 0%" data-percent="40"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-8 pt-6 border-t border-slate-50 dark:border-slate-800/50 grid grid-cols-2 gap-4">
+                <div class="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800">
+                    <h4 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 flex items-center justify-between">
+                        Top performing tag
+                        <span class="text-[8px] opacity-50">PROJECTION</span>
+                    </h4>
+                    <div class="text-indigo-600 font-bold">#asmr_reels</div>
+                </div>
+                <div class="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800">
+                    <h4 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 flex items-center justify-between">
+                        Peak engagement window
+                        <span class="text-[8px] opacity-50">PROJECTION</span>
+                    </h4>
+                    <div class="text-emerald-500 font-bold">08:30 - 09:45 AM</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Health Side -->
+        <div class="space-y-6">
+            <div class="card p-6">
+                <h3 class="font-bold text-sm text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                    <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                    Profile integrity
+                </h3>
+                <div id="profiles-list" class="space-y-3">
+                    <div class="text-center py-4 text-slate-400 text-xs italic">Fetching account states...</div>
+                </div>
+                <a href="/accounts" class="mt-4 block text-center text-[11px] font-bold text-indigo-500 hover:text-indigo-600 transition-colors">Manage accounts →</a>
+            </div>
+
+            <div class="card p-6 bg-indigo-600 border-none shadow-xl shadow-indigo-200 dark:shadow-none relative overflow-hidden">
+                <div class="relative z-10">
+                    <h3 class="font-bold text-sm text-indigo-50 text-opacity-90 mb-2">Publisher automation</h3>
+                    <p class="text-[11px] text-white text-opacity-80 leading-relaxed mb-4">You have <strong>{{ pending + scheduled }}</strong> items waiting in the engine. Ensure profiles are logged in to avoid failures.</p>
+                    <a href="/editor" class="inline-flex items-center px-4 py-2 bg-white text-indigo-600 rounded-lg text-xs font-bold hover:bg-slate-50 transition-colors shadow-lg">
+                        Go to hub
+                        <svg class="w-3.5 h-3.5 ml-1.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"></path></svg>
+                    </a>
+                </div>
+                <!-- Background Decoration -->
+                <div class="absolute -right-4 -bottom-4 opacity-10">
+                    <svg class="w-24 h-24 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path></svg>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    async function fetchDashboardUpdates() {
+        try {
+            const res = await fetch('/api/accounts');
+            if (res.ok) {
+                const data = await res.json();
+                const container = document.getElementById('profiles-list');
+                const countEl = document.getElementById('active-acc-count');
+                
+                if (data.accounts && data.accounts.length > 0) {
+                    countEl.textContent = data.accounts.length;
+                    container.innerHTML = data.accounts.slice(0, 4).map(acc => `
+                        <div class="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 dark:bg-slate-900 items-center">
+                            <div class="flex items-center gap-3">
+                                <div class="w-2 h-2 rounded-full bg-emerald-500 shadow-sm shadow-emerald-200 dark:shadow-none"></div>
+                                <span class="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate max-w-[100px]">${acc.name}</span>
+                            </div>
+                            <span class="text-[10px] font-bold text-slate-400 px-1.5 py-0.5 border border-slate-200 dark:border-slate-800 rounded uppercase tracking-tighter">${acc.profile}</span>
+                        </div>
+                    `).join('');
+                } else {
+                    container.innerHTML = '<div class="text-center py-4 text-slate-400 text-xs italic">No accounts configured.</div>';
+                }
+            }
+        } catch (e) {}
+    }
+
+    // Delayed chart animation
+    window.addEventListener('load', () => {
+        setTimeout(() => {
+            document.querySelectorAll('[data-percent]').forEach(el => {
+                el.style.width = el.dataset.percent + '%';
+            });
+        }, 300);
+        fetchDashboardUpdates();
+    });
+</script>
+{% endblock %}
