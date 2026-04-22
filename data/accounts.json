@@ -5,5 +5,11 @@
         "profile": "Automation_1",
         "status": "Verified",
         "last_verified": "2026-04-18 18:46:21"
+    },
+    {
+        "id": "c64ad7e3",
+        "name": "Primaty",
+        "profile": "Primaty",
+        "status": "Ready"
     }
 ]

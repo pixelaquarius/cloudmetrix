@@ -28,7 +28,10 @@ def log_state(msg):
     DOWNLOAD_STATE["logs"].append(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
     if len(DOWNLOAD_STATE["logs"]) > 20:
         DOWNLOAD_STATE["logs"].pop(0)
-    print(msg)
+    try:
+        print(msg)
+    except UnicodeEncodeError:
+        print(msg.encode('ascii', 'ignore').decode('ascii'))
 
 def extract_thumbnail(video_path, thumbnail_dir):
     # Dùng cho phương pháp cũ (back-up). Khi dùng yt-dlp, ta sẽ fetch trực tiếp thumbnail từ URL

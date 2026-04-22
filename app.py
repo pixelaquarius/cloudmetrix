@@ -235,8 +235,9 @@ with sync_playwright() as p:
     with open(tmp_script, 'w', encoding='utf-8') as f:
         f.write(script_content)
         
-    # Launch detached subprocess
-    subprocess.Popen(['python', tmp_script], creationflags=subprocess.CREATE_NEW_CONSOLE if os.name == 'nt' else 0)
+    # Launch detached subprocess using venv Python
+    python_exe = os.path.join(BASE_DIR, 'venv', 'Scripts', 'python.exe')
+    subprocess.Popen([python_exe, tmp_script], creationflags=subprocess.CREATE_NEW_CONSOLE if os.name == 'nt' else 0)
     
     return jsonify({"success": True, "message": f"Login window launched for profile {profile}"})
 
