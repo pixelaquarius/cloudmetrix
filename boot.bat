@@ -1,4 +1,5 @@
 @echo off
+cd /d "%~dp0"
 color 0b
 echo ==================================================
 echo      CLOUDMETRIX AUTO-BOOTSTRAPPER (SMART FIX)
