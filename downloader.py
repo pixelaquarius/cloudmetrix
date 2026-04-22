@@ -82,20 +82,28 @@ def sync_tiktok(target_url, max_videos=5, base_dir="data", thumbnail_dir="data/t
     DOWNLOAD_STATE["current"] = 0
     
     url = format_url(target_url)
-    extractor = TikTokSmartExtractor(download_dir=os.path.join(base_dir, "downloads"))
     
-    log_state(f"🚀 Using TikTokSmartExtractor (Playwright + TikWM) for {url}")
+    log_state(f"🚀 Using yt-dlp (Stable Method) for {url}")
     
-    # 1. Scrape links using Playwright (running async in a sync context)
+    import yt_dlp
+    ydl_opts = {
+        'extract_flat': 'in_playlist',
+        'playlistend': max_videos if max_videos > 0 else 10,
+        'quiet': True,
+        'no_warnings': True,
+    }
+    
     try:
-        video_links = asyncio.run(extractor.get_video_links(url, max_scroll_times=3))
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            if 'entries' in info:
+                video_links = [entry['url'] for entry in info['entries'] if entry.get('url')]
+            else:
+                video_links = [info['url']] if info.get('url') else []
     except Exception as e:
-        log_state(f"❌ Scrape error: {e}")
+        log_state(f"❌ yt-dlp Scrape error: {e}")
         DOWNLOAD_STATE["status"] = "idle"
         return []
-
-    if max_videos > 0 and len(video_links) > max_videos:
-        video_links = video_links[:max_videos]
 
     total_videos = len(video_links)
     DOWNLOAD_STATE["total"] = total_videos
@@ -111,8 +119,6 @@ def sync_tiktok(target_url, max_videos=5, base_dir="data", thumbnail_dir="data/t
     os.makedirs(folder_path, exist_ok=True)
     os.makedirs(thumbnail_dir, exist_ok=True)
 
-    # 2. Process each video
-    # Since we need to yield incrementally for the UI, we'll use a simplified version of fetch_cdn_and_download logic here
     import aiohttp
     
     async def process_batch():
@@ -134,10 +140,7 @@ def sync_tiktok(target_url, max_videos=5, base_dir="data", thumbnail_dir="data/t
                             title = item.get("title", f"Video {video_id}")
                             thumb_url = item.get("cover")
                             
-                            if thumb_url:
-                                thumb_path = thumb_url # Save CDN URL directly
-                            else:
-                                thumb_path = ""
+                            thumb_path = thumb_url if thumb_url else ""
                             
                             record = {
                                 "source_url": v_link,
@@ -154,11 +157,10 @@ def sync_tiktok(target_url, max_videos=5, base_dir="data", thumbnail_dir="data/t
                 except Exception as e:
                     log_state(f"⚠️ Network error for {video_id}: {e}")
                 
-                # Human-like jitter
+                import random
                 await asyncio.sleep(random.uniform(1.0, 2.0))
         return results
 
-    # Run the batch processing
     records = asyncio.run(process_batch())
     
     for rec in records:
