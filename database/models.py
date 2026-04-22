@@ -45,10 +45,17 @@ class VideoAsset(Base):
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(BASE_DIR, 'data')
 DATABASE_URL = f"sqlite+aiosqlite:///{os.path.join(DATA_DIR, 'cloudmetrix.db')}"
+SYNC_DATABASE_URL = f"sqlite:///{os.path.join(DATA_DIR, 'cloudmetrix.db')}"
 
 engine = create_async_engine(DATABASE_URL, echo=False)
 async_session = sessionmaker(
     engine, expire_on_commit=False, class_=AsyncSession
+)
+
+from sqlalchemy import create_engine
+sync_engine = create_engine(SYNC_DATABASE_URL, echo=False)
+sync_session = sessionmaker(
+    sync_engine, expire_on_commit=False
 )
 
 async def init_db():
@@ -57,4 +64,8 @@ async def init_db():
 
 async def get_session() -> AsyncSession:
     async with async_session() as session:
+        yield session
+
+def get_sync_session():
+    with sync_session() as session:
         yield session

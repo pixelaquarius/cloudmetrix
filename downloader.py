@@ -131,16 +131,16 @@ def sync_tiktok(target_url, max_videos=5, base_dir="data", thumbnail_dir="data/t
                             title = item.get("title", f"Video {video_id}")
                             thumb_url = item.get("cover")
                             
-                            thumb_name = f"{video_id}.jpg"
-                            thumb_path = os.path.join(thumbnail_dir, thumb_name)
                             if thumb_url:
-                                download_thumbnail_from_url(thumb_url, thumb_path)
+                                thumb_path = thumb_url # Save CDN URL directly
+                            else:
+                                thumb_path = ""
                             
                             record = {
                                 "source_url": v_link,
                                 "filename": f"{video_id}.mp4",
                                 "title": title,
-                                "thumbnail_path": thumb_name
+                                "thumbnail_path": thumb_path
                             }
                             
                             if "results" not in DOWNLOAD_STATE: DOWNLOAD_STATE["results"] = []
