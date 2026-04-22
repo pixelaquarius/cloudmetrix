@@ -96,7 +96,7 @@ async function loadData() {
                     } catch(e){}
                 }
 
-                const thumbUri = row.thumbnail_path ? `/data/thumbnails/${row.thumbnail_path}` : '';
+                const thumbUri = row.thumbnail_path ? (row.thumbnail_path.startsWith('http') ? row.thumbnail_path : `/data/thumbnails/${row.thumbnail_path}`) : '';
                 const titleHtml = thumbUri 
                     ? `<div class="flex items-center space-x-3 cursor-pointer group" onclick="playVideo('${row.filename}')"><img src="${thumbUri}" class="w-6 h-8 object-cover rounded opacity-80 group-hover:opacity-100 border border-slate-200 dark:border-slate-700"><span class="truncate max-w-[250px] group-hover:text-indigo-600 dark:group-hover:text-indigo-400">${row.title || 'Untitled'}</span></div>`
                     : `<span class="truncate max-w-[250px]">${row.title || 'Untitled'}</span>`;

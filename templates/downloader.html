@@ -235,7 +235,7 @@ function renderPreviewGrid() {
     grid.innerHTML = '';
     
     globalPreviewRecords.forEach((rec, idx) => {
-        const thumbUri = rec.thumbnail_path ? `/data/thumbnails/${rec.thumbnail_path}` : '';
+        const thumbUri = rec.thumbnail_path ? (rec.thumbnail_path.startsWith('http') ? rec.thumbnail_path : `/data/thumbnails/${rec.thumbnail_path}`) : '';
         const bgImg = thumbUri ? `background-image: url('${thumbUri}');` : 'background-color: #f1f5f9;';
         
         grid.innerHTML += `

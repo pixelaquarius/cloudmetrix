@@ -255,8 +255,9 @@
 
     function renderRow(row, index) {
         const badge = statusBadge(row.status);
+        const thumbUri = row.thumbnail_path ? (row.thumbnail_path.startsWith('http') ? row.thumbnail_path : `/data/thumbnails/${row.thumbnail_path}`) : '';
         const thumb = row.thumbnail_path
-            ? `<img src="/data/thumbnails/${row.thumbnail_path}" class="w-10 h-14 object-cover rounded-lg cursor-pointer hover:scale-105 transition-transform shadow-sm" onclick="playVideo('${esc(row.filename)}','${esc(row.title)}','${esc(row.source_url)}')" title="Preview video">`
+            ? `<img src="${thumbUri}" class="w-10 h-14 object-cover rounded-lg cursor-pointer hover:scale-105 transition-transform shadow-sm" onclick="playVideo('${esc(row.filename)}','${esc(row.title)}','${esc(row.source_url)}')" title="Preview video">`
             : `<div class="w-10 h-14 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center text-slate-300"><svg class="w-5 h-5 font-bold" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/></svg></div>`;
 
         return `

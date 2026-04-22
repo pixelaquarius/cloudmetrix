@@ -118,8 +118,9 @@
         }
 
         tbody.innerHTML = pending.map(row => {
+            const thumbUri = row.thumbnail_path ? (row.thumbnail_path.startsWith('http') ? row.thumbnail_path : `/data/thumbnails/${row.thumbnail_path}`) : '';
             const thumb = row.thumbnail_path
-                ? `<img src="/data/thumbnails/${row.thumbnail_path}" class="w-10 h-14 object-cover rounded-xl ring-1 ring-slate-100 dark:ring-slate-800 shadow-sm" title="Preview">`
+                ? `<img src="${thumbUri}" class="w-10 h-14 object-cover rounded-xl ring-1 ring-slate-100 dark:ring-slate-800 shadow-sm" title="Preview">`
                 : `<div class="w-10 h-14 bg-slate-50 dark:bg-slate-900 rounded-xl flex items-center justify-center text-slate-200"><svg class="w-5 h-5 font-bold" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/></svg></div>`;
             
             let profileOptions = accountsList.map(acc => 

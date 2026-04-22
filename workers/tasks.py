@@ -192,7 +192,19 @@ def background_smart_sync_task(url_or_id):
         saved_count = 0
         with sync_session() as session:
             for rec in records:
-                # rec has: source_url, filename, title, thumbnail_path
+                # Generate AI Variations
+                variations = []
+                try:
+                    import asyncio
+                    import json
+                    from services.gemini_service import CloudMetrixLLMService
+                    llm_svc = CloudMetrixLLMService()
+                    async def fetch_caps():
+                        return await llm_svc.generate_caption_variations(rec["title"], "")
+                    variations = asyncio.run(fetch_caps())
+                except Exception as e:
+                    print(f"LLM Error: {e}")
+
                 new_asset = VideoAsset(
                     id=str(uuid.uuid4())[:8],
                     filename=rec["filename"],
@@ -200,6 +212,7 @@ def background_smart_sync_task(url_or_id):
                     caption="",
                     source_url=rec["source_url"],
                     thumbnail_path=rec["thumbnail_path"],
+                    caption_variations=json.dumps(variations),
                     status=AssetStatus.PENDING
                 )
                 session.add(new_asset)
